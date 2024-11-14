@@ -1,29 +1,53 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from mpl_toolkits.mplot3d import Axes3D
+from tkinter import Tk, Scale, HORIZONTAL
 
-# Inicializar el terreno (una matriz que representa la elevación de cada celda)
-terreno = np.zeros((100, 100))
+# Crear la ventana principal de Tkinter
+root = Tk()
+root.title("Simulación de Formación de Montañas")
 
-# Parámetros de simulación (como puntos de colisión y subducción)
-def actualizar_terreno(terreno):
-    # Simulación de colisión: elevar una línea en la matriz (eje x)
-    terreno[:, 50] += np.random.normal(0, 1, terreno.shape[0])
-    # Simulación de subducción: reducir altura en una línea específica
-    terreno[:, 10] -= np.random.normal(0, 1, terreno.shape[0])
+# Inicializar el terreno
+n = 100  # Tamaño de la cuadrícula
+terreno = np.zeros((n, n))
+
+# Configuración de la figura 3D de matplotlib
+fig = plt.figure(figsize=(8, 6))
+ax = fig.add_subplot(111, projection='3d')
+
+# Función de actualización del terreno según la intensidad de vibraciones
+def actualizar_terreno(intensidad):
+    global terreno
+    vibracion = np.random.normal(0, intensidad, (n, n))
+    terreno += vibracion  # Aumentar altura del terreno en función de la vibración
+    terreno = np.clip(terreno, 0, 50)  # Limitar los valores para mantener un rango adecuado
     return terreno
 
-# Crear la figura de la simulación
-fig, ax = plt.subplots()
-heatmap = ax.imshow(terreno, cmap='terrain', vmin=-5, vmax=20)
+# Función para actualizar la gráfica en 3D
+def actualizar_grafico(intensidad):
+    ax.clear()  # Limpiar el gráfico para la actualización
+    terreno_actualizado = actualizar_terreno(intensidad)
+    X, Y = np.meshgrid(range(n), range(n))
+    ax.plot_surface(X, Y, terreno_actualizado, cmap='terrain')
+    ax.set_zlim(0, 50)
+    ax.set_title("Simulación de Formación de Montañas")
+    canvas.draw()
 
-# Función para actualizar cada frame en la animación
-def animar(i):
-    global terreno
-    terreno = actualizar_terreno(terreno)
-    heatmap.set_data(terreno)
-    return heatmap,
+# Crear el control deslizante para ajustar la intensidad de vibraciones
+def on_scale_change(val):
+    intensidad = float(val)
+    actualizar_grafico(intensidad)
 
-# Animación
-anim = FuncAnimation(fig, animar, frames=100, interval=50, blit=True)
-plt.show()
+scale = Scale(root, from_=0.1, to=5.0, resolution=0.1, orient=HORIZONTAL, label="Intensidad de Vibración", command=on_scale_change)
+scale.pack()
+
+# Crear un lienzo para colocar la figura de matplotlib en la ventana de Tkinter
+canvas = FigureCanvasTkAgg(fig, master=root)
+canvas.get_tk_widget().pack()
+
+# Llamada inicial para mostrar la primera versión del gráfico
+actualizar_grafico(scale.get())
+
+# Iniciar el loop de Tkinter
+root.mainloop()
