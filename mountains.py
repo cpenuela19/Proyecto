@@ -1,104 +1,142 @@
 import numpy as np
 import matplotlib.pyplot as plt
-from matplotlib.animation import FuncAnimation
+from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
+from tkinter import Tk, Scale, HORIZONTAL, Button, Frame, Label
+import matplotlib
+matplotlib.use('TkAgg')
 
-# Tamaño de la cuadrícula
-n = 100
-
-# Altura inicial del terreno
+# Configuración inicial
+n = 100  # Tamaño de la cuadrícula
 terrain = np.zeros((n, n))
-
-# IDs de las placas tectónicas
 plate_ids = np.zeros((n, n), dtype=int)
-
-# Número de placas tectónicas
 num_plates = 5
-
-# Inicializar placas tectónicas
 plates = []
 
-# Crear máscaras y velocidades para las placas
-plate_size = n // 2
-for i in range(num_plates):
-    plate = {}
-    # Definir una región rectangular para la placa
-    x_start = np.random.randint(0, n - plate_size)
-    y_start = np.random.randint(0, n - plate_size)
-    mask = np.zeros((n, n), dtype=bool)
-    mask[y_start:y_start+plate_size, x_start:x_start+plate_size] = True
-    plate['mask'] = mask
-    # Asignar velocidades aleatorias
-    dx = np.random.randint(-1, 2)
-    dy = np.random.randint(-1, 2)
-    # Asegurarse de que las velocidades no sean cero
-    while dx == 0 and dy == 0:
+# Función para inicializar las placas tectónicas
+def init_plates():
+    global plates, plate_ids
+    plates = []
+    plate_ids.fill(0)
+    plate_size = n // 2
+    for i in range(num_plates):
+        plate = {}
+        x_start = np.random.randint(0, n - plate_size)
+        y_start = np.random.randint(0, n - plate_size)
+        mask = np.zeros((n, n), dtype=bool)
+        mask[y_start:y_start+plate_size, x_start:x_start+plate_size] = True
+        plate['mask'] = mask
         dx = np.random.randint(-1, 2)
         dy = np.random.randint(-1, 2)
-    plate['velocity'] = (dx, dy)
-    plates.append(plate)
-    # Inicializar IDs de las placas
-    plate_ids[mask] = i + 1
+        while dx == 0 and dy == 0:
+            dx = np.random.randint(-1, 2)
+            dy = np.random.randint(-1, 2)
+        plate['velocity'] = (dx, dy)
+        plates.append(plate)
+        plate_ids[mask] = i + 1
 
-# Función para actualizar las placas tectónicas
-def update_plates(plates):
+# Funciones para la simulación
+def update_plates():
     global plate_ids
     plate_ids.fill(0)
     for idx, plate in enumerate(plates):
         dx, dy = plate['velocity']
         plate['mask'] = np.roll(plate['mask'], shift=(dy, dx), axis=(0, 1))
-        plate_ids[plate['mask']] = idx + 1  # Actualizar IDs de las placas
+        plate_ids[plate['mask']] = idx + 1
 
-# Función para detectar colisiones y ajustar el terreno
-def adjust_terrain(plates, terrain):
-    num_plates = len(plates)
-    for i in range(num_plates):
-        for j in range(i+1, num_plates):
+def adjust_terrain():
+    global terrain
+    for i in range(len(plates)):
+        for j in range(i+1, len(plates)):
             overlap = plates[i]['mask'] & plates[j]['mask']
             if np.any(overlap):
-                # Calcular velocidades relativas
                 dx1, dy1 = plates[i]['velocity']
                 dx2, dy2 = plates[j]['velocity']
                 vel1 = np.sqrt(dx1**2 + dy1**2)
                 vel2 = np.sqrt(dx2**2 + dy2**2)
                 rel_vel = np.sqrt((dx1 - dx2)**2 + (dy1 - dy2)**2)
-                # Decidir si hay subducción o elevación
                 if vel1 > vel2:
-                    terrain[overlap] -= rel_vel  # Subducción, disminuir altura
+                    terrain[overlap] -= rel_vel * collision_intensity.get()
                 else:
-                    terrain[overlap] += rel_vel  # Elevación, aumentar altura
-                # Limitar las alturas del terreno
+                    terrain[overlap] += rel_vel * collision_intensity.get()
                 terrain = np.clip(terrain, -50, 50)
-    return terrain
 
-# Función para simular la erosión del terreno
-def erode_terrain(terrain):
-    erosion_rate = 0.05
+def erode_terrain():
+    global terrain
+    erosion_rate = erosion_scale.get() / 100
     terrain -= erosion_rate
     terrain = np.clip(terrain, -50, 50)
-    return terrain
 
-# Configurar la visualización
-fig = plt.figure(figsize=(10, 8))
+def update_simulation():
+    update_plates()
+    adjust_terrain()
+    erode_terrain()
+    plot_terrain()
+
+def plot_terrain():
+    ax.clear()
+    ax.plot_surface(X, Y, terrain, cmap='terrain', rstride=1, cstride=1, linewidth=0, antialiased=False)
+    ax.set_zlim(-50, 50)
+    ax.set_title("Simulación de Formación de Montañas")
+    canvas.draw()
+
+def start_simulation():
+    update_simulation()
+    root.after(100, start_simulation)
+
+def reset_simulation():
+    global terrain
+    terrain = np.zeros((n, n))
+    init_plates()
+    plot_terrain()
+
+def update_plate_velocity(val):
+    for plate in plates:
+        dx = np.random.randint(-1, 2) * plate_speed.get()
+        dy = np.random.randint(-1, 2) * plate_speed.get()
+        while dx == 0 and dy == 0:
+            dx = np.random.randint(-1, 2) * plate_speed.get()
+            dy = np.random.randint(-1, 2) * plate_speed.get()
+        plate['velocity'] = (dx, dy)
+
+# Configuración de la interfaz gráfica
+root = Tk()
+root.title("Simulación Interactiva de Formación de Montañas")
+
+fig = plt.figure(figsize=(8, 6))
 ax = fig.add_subplot(111, projection='3d')
-ax.view_init(elev=45, azim=45)
 X, Y = np.meshgrid(range(n), range(n))
 
-# Función para animar la simulación
-def animate(frame):
-    global terrain, plate_ids
-    ax.clear()
-    update_plates(plates)
-    terrain = adjust_terrain(plates, terrain)
-    terrain = erode_terrain(terrain)
-    surf = ax.plot_surface(X, Y, terrain, cmap='seismic', rstride=1, cstride=1, linewidth=0, antialiased=False)
-    ax.set_zlim(-50, 50)
-    ax.set_title("Simulación de Formación de Montañas por Colisión de Placas Tectónicas")
-    ax.set_xlabel('X')
-    ax.set_ylabel('Y')
-    ax.set_zlabel('Altura')
-    return ax,
+canvas = FigureCanvasTkAgg(fig, master=root)
+canvas.get_tk_widget().pack(side='top', fill='both', expand=1)
 
-# Crear la animación
-anim = FuncAnimation(fig, animate, frames=200, interval=50, blit=False)
+control_frame = Frame(root)
+control_frame.pack(side='bottom')
 
-plt.show()
+# Control de velocidad de las placas
+Label(control_frame, text="Velocidad de Placas").grid(row=0, column=0)
+plate_speed = Scale(control_frame, from_=0.5, to=5.0, resolution=0.5, orient=HORIZONTAL, command=update_plate_velocity)
+plate_speed.set(1.0)
+plate_speed.grid(row=0, column=1)
+
+# Control de tasa de erosión
+Label(control_frame, text="Tasa de Erosión").grid(row=1, column=0)
+erosion_scale = Scale(control_frame, from_=0.0, to=10.0, resolution=0.1, orient=HORIZONTAL)
+erosion_scale.set(0.5)
+erosion_scale.grid(row=1, column=1)
+
+# Control de intensidad de colisión
+Label(control_frame, text="Intensidad de Colisión").grid(row=2, column=0)
+collision_intensity = Scale(control_frame, from_=0.5, to=5.0, resolution=0.5, orient=HORIZONTAL)
+collision_intensity.set(1.0)
+collision_intensity.grid(row=2, column=1)
+
+# Botón de reinicio
+reset_button = Button(control_frame, text="Reiniciar Simulación", command=reset_simulation)
+reset_button.grid(row=3, column=0, columnspan=2)
+
+# Inicializar y comenzar la simulación
+init_plates()
+plot_terrain()
+start_simulation()
+
+root.mainloop()
