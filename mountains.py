@@ -1,9 +1,5 @@
-# se deben instalar las siguientes librerias
-# pip install numpy
-# pip install matplotlib
-# pip install tk
-
 # Simulación de formación de montañas por colisión de placas tectónicas
+
 import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_tkagg import FigureCanvasTkAgg
