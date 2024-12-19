@@ -33,7 +33,6 @@ def init_plates():
         plates.append(plate)
         plate_ids[mask] = i + 1
 
-# Funciones para la simulación
 def update_plates():
     global plate_ids
     plate_ids.fill(0)
