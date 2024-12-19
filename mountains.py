@@ -6,14 +6,12 @@ from tkinter import Tk, Scale, HORIZONTAL, Button, Frame, Label
 import matplotlib
 matplotlib.use('TkAgg')
 
-# Configuración inicial
 n = 100  # Tamaño de la cuadrícula
 terrain = np.zeros((n, n))
 plate_ids = np.zeros((n, n), dtype=int)
 num_plates = 5
 plates = []
 
-# Función para inicializar las placas tectónicas
 def init_plates():
     global plates, plate_ids
     plates = []
