@@ -5,7 +5,7 @@ from tkinter import Tk, Scale, HORIZONTAL, Button, Frame, Label
 import matplotlib
 matplotlib.use('TkAgg')
 
-n = 100  # Tamaño de la cuadrícula
+n = 100 
 terrain = np.zeros((n, n))
 plate_ids = np.zeros((n, n), dtype=int)
 num_plates = 5
